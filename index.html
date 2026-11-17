@@ -465,7 +465,10 @@ function expSheet(id){
 
 /* ---------- views: more ---------- */
 function moreView(){
-  return `<div class="card"><h3>Расходы</h3>
+  return `<div class="card"><h3>Развитие приложения</h3>
+   <button class="btn pri full" data-act="idea" style="margin-top:0">💡 Идея / правка</button>
+   <div class="note">Откроется страница GitHub с готовым шаблоном. Напиши, что изменить или добавить, и отправь — потом попроси Claude разобрать заметки.</div></div>
+  <div class="card"><h3>Расходы</h3>
    <div class="set"><span>Валюта</span><input class="inp" data-chg="cur" maxlength="4" value="${esc(S.set.cur)}"></div>
    <div class="set"><span>Бюджет на месяц</span><input class="inp" data-chg="budget" type="number" inputmode="decimal" placeholder="0" value="${S.set.budget||''}"></div></div>
   <div class="card"><h3>Категории расходов</h3><div class="chips">${S.cats.map(c=>`<span class="chip" style="display:inline-flex;align-items:center">${esc(c.e)} ${esc(c.n)}<button class="xb" data-act="delCat" data-id="${c.id}">×</button></span>`).join('')}<button class="chip on" data-act="newCat">+ Добавить</button></div></div>
@@ -600,6 +603,12 @@ ACT.doImp=()=>{
   let o;try{o=JSON.parse($('#f_imp').value)}catch(e){return toast('Это не похоже на JSON')}
   if(!valid(o))return toast('Неверный формат данных');
   ask('Заменить текущие данные импортированными?',()=>{S=o;save();closeSheet();render();toast('Импортировано')});
+};
+ACT.idea=()=>{
+  const body=encodeURIComponent('## Что изменить или добавить\n\n\n## Зачем / как должно работать\n\n');
+  const url='https://github.com/sadlavaw/tracker/issues/new?title='+encodeURIComponent('')+'&body='+body;
+  try{if(inTG&&tg.openLink){tg.openLink(url);return}}catch(e){}
+  window.open(url,'_blank');
 };
 ACT.reset=()=>ask('Стереть ВСЕ данные? Это нельзя отменить.',()=>{S=fresh();save();V.habitId=null;render();toast('Данные стёрты')});
 ACT.cloudSave=()=>{toast('Сохраняю…');cloudSave(ok=>toast(ok?'Сохранено в Telegram ☁️':'Не удалось сохранить'))};
