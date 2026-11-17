@@ -94,6 +94,11 @@ h3{font-size:13px;margin:0 0 12px;color:var(--mu);font-weight:600;text-transform
 .bb.mid{background:color-mix(in srgb,var(--c) 35%,var(--cell))}
 .bc span{font-size:10px;color:var(--mu);text-align:center;margin-top:4px;height:16px;line-height:12px}
 .gl{position:absolute;left:0;right:0;border-top:1.5px dashed color-mix(in srgb,var(--tx) 35%,transparent);pointer-events:none}
+.chead{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.chead .ib{background:var(--cell);box-shadow:none}
+.dots{display:flex;gap:6px;justify-content:center;margin:12px 0 2px}
+.dots i{width:6px;height:6px;border-radius:50%;background:var(--cell)}
+.dots i.on{background:var(--ac)}
 .big{font-size:32px;font-weight:700;letter-spacing:-.03em}
 .pbar{height:8px;background:var(--cell);border-radius:8px;overflow:hidden;margin-top:12px}
 .pbar i{display:block;height:100%;background:var(--ac);border-radius:8px}
@@ -197,7 +202,7 @@ function valid(o){return o&&o.v===1&&Array.isArray(o.tasks)&&Array.isArray(o.hab
 function load(){try{const r=JSON.parse(localStorage.getItem(KEY));if(valid(r))return r}catch(e){}return fresh()}
 let S=load();
 function save(){S.ts=Date.now();try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}cloudSoon()}
-const V={tab:'habits',taskTab:'today',habitDate:today(),habitId:null,month:today().slice(0,7),showDone:false};
+const V={tab:'home',homeView:0,taskTab:'today',habitDate:today(),habitId:null,month:today().slice(0,7),showDone:false};
 
 /* ---------- Telegram CloudStorage backup ---------- */
 const cs=()=>(tg&&tg.isVersionAtLeast&&tg.isVersionAtLeast('6.9')&&tg.CloudStorage)||null;
@@ -333,7 +338,7 @@ function taskView(){
   const list=S.tasks.filter(t=>inB(t,tab)).sort((a,b)=>a.created-b.created);
   const open=list.filter(t=>!t.done),dn=list.filter(t=>t.done);
   const showDone=tab==='today'||V.showDone;
-  const item=t=>`<div class="task${t.done?' dn':''}"><button class="cb${t.done?' on':''}" data-act="tgl" data-id="${t.id}">${t.done?'✓':''}</button><div class="tt" data-act="etask" data-id="${t.id}">${esc(t.title)}${!t.done&&t.type==='day'&&t.date<t0?'<small>просрочено</small>':''}</div></div>`;
+  const item=t=>taskItem(t,t0);
   const ph={today:'Что сделать сегодня?',tomorrow:'План на завтра',short:'Краткосрочная задача',long:'Долгосрочная цель'}[tab];
   let h=`<div class="seg">${tabs.map(([k,l])=>`<button class="${tab===k?'on':''}" data-act="tt" data-v="${k}">${l}${cnt(k)?`<b>${cnt(k)}</b>`:''}</button>`).join('')}</div>
   <div class="add"><input id="newTask" class="inp" placeholder="${ph}" maxlength="200" autocomplete="off"><button class="btn pri" data-act="addTask">+</button></div>`;
@@ -346,9 +351,10 @@ function taskView(){
   }
   return h;
 }
+function taskItem(t,t0){return `<div class="task${t.done?' dn':''}"><button class="cb${t.done?' on':''}" data-act="tgl" data-id="${t.id}">${t.done?'✓':''}</button><div class="tt" data-act="etask" data-id="${t.id}">${esc(t.title)}${!t.done&&t.type==='day'&&t.date<t0?'<small>просрочено</small>':''}</div></div>`}
 function addTask(){
   const el=$('#newTask');const title=el.value.trim();if(!title)return;
-  const tab=V.taskTab,t0=today();
+  const tab=V.tab==='home'?'today':V.taskTab,t0=today();
   const t={id:uid(),title,done:false,doneAt:null,created:Date.now()};
   if(tab==='today'||tab==='tomorrow'){t.type='day';t.date=tab==='today'?t0:addDays(t0,1)}else t.type=tab;
   S.tasks.push(t);save();hap();render();
@@ -508,6 +514,47 @@ function expSheet(id){
   <div class="row" style="margin-top:20px"><button class="btn pri grow" data-act="saveExp" data-id="${id||''}">Сохранить</button>${e?`<button class="btn dng" data-act="delExp" data-id="${id}">Удалить</button>`:''}</div>`,s=>{if(!e){const a=$('#f_a');a&&a.focus()}});
 }
 
+/* ---------- views: home ---------- */
+function dayOverall(d,fd){let n=0,m=0;S.habits.forEach(h=>{if(fd[h.id]<=d){m++;if(done(h,d))n++}});return {n,m}}
+function homeCard(){
+  const v=V.homeView;let sub,inner;
+  if(!v){
+    sub=S.habits.length?'доля выполненных за день':'пока нет привычек';
+    if(!S.habits.length)inner=`<div class="empty" style="padding:24px 0"><button class="btn pri" data-act="nav" data-v="habits">Добавить привычки</button></div>`;
+    else{
+      const fd={};S.habits.forEach(h=>{fd[h.id]=firstDay(h)});const t0=today();
+      const avg=n=>{let s2=0,c=0;for(let i=0;i<n;i++){const o=dayOverall(addDays(t0,-i),fd);if(o.m){s2+=o.n/o.m;c++}}return c?Math.round(s2/c*100):0};
+      const td=dayOverall(t0,fd);
+      inner=heat({color:'#2f9e44',act:'hmcell',level:d=>{const o=dayOverall(d,fd);if(!o.m||!o.n)return 0;const r=o.n/o.m;return r<.34?1:r<.67?2:r<1?3:4}})
+       +`<div class="grid3" style="margin:14px 0 0"><div class="st"><b>${td.n}/${td.m}</b><span>сегодня</span></div><div class="st"><b>${avg(7)}%</b><span>за 7 дней</span></div><div class="st"><b>${avg(30)}%</b><span>за 30 дней</span></div></div>`;
+    }
+  }else{
+    const dm=dayMap(),t0=today(),mon=t0.slice(0,7),ml=monthExp(mon),mt=sumE(ml);
+    const nz=Object.values(dm).filter(x=>x>0).sort((a,b)=>a-b);
+    const q=nz.length?nz[Math.min(nz.length-1,Math.floor(nz.length*.9))]:1;
+    sub=MONN[+mon.slice(5)-1].toLowerCase()+': '+money(mt);
+    inner=heat({color:'#f76707',act:'ecell',level:d=>{const x=dm[d]||0;if(!x)return 0;const r=Math.min(1,x/q);return r<.25?1:r<.5?2:r<.8?3:4}})
+     +`<div class="grid3" style="margin:14px 0 0"><div class="st"><b>${money(Math.round(dm[t0]||0))}</b><span>сегодня</span></div><div class="st"><b>${money(Math.round(mt))}</b><span>за месяц</span></div><div class="st"><b>${money(Math.round(mt/+t0.slice(8)))}</b><span>в день</span></div></div>`;
+  }
+  return `<div class="card car"><div class="chead"><button class="ib" data-act="hv" data-n="-1">‹</button><div class="hdt">${v?'Расходы':'Привычки'}<small>${sub}</small></div><button class="ib" data-act="hv" data-n="1">›</button></div>${inner}<div class="dots"><i class="${v?'':'on'}"></i><i class="${v?'on':''}"></i></div></div>`;
+}
+function homeTasks(){
+  const t0=today();
+  const groups=[
+   ['Сегодня',t=>t.type==='day'&&t.date<=t0&&(!t.done||t.doneAt===t0)],
+   ['Завтра',t=>t.type==='day'&&t.date>t0&&!t.done],
+   ['Скоро',t=>t.type==='short'&&!t.done],
+   ['Долго',t=>t.type==='long'&&!t.done]];
+  let h=`<h3 style="margin:18px 4px 10px">Задачи</h3><div class="add"><input id="newTask" class="inp" placeholder="Новая задача на сегодня" maxlength="200" autocomplete="off"><button class="btn pri" data-act="addTask">+</button></div>`;
+  groups.forEach(([name,f],i)=>{
+    const list=S.tasks.filter(f).sort((a,b)=>(a.done-b.done)||(a.created-b.created));
+    if(!list.length&&i>0)return;
+    const open=list.filter(t=>!t.done).length;
+    h+=`<div class="dg"><span>${name}</span><span>${open}</span></div><div class="card" style="padding:4px 16px">${list.length?list.map(t=>taskItem(t,t0)).join(''):'<div class="sb" style="padding:12px 0">Нет задач на сегодня</div>'}</div>`;
+  });
+  return h;
+}
+
 /* ---------- views: more ---------- */
 function moreView(){
   return `<div class="card"><h3>Развитие приложения</h3>
@@ -527,15 +574,17 @@ function moreView(){
 
 /* ---------- render ---------- */
 const ICONS={
+ home:'<path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
  tasks:'<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
  habits:'<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
  exp:'<rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/>',
  more:'<line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>'};
-const NAV=[['tasks','Задачи'],['habits','Привычки'],['exp','Расходы'],['more','Ещё']];
+const NAV=[['home','Главная'],['tasks','Задачи'],['habits','Привычки'],['exp','Расходы'],['more','Ещё']];
 function hTitle(t,s){return `<div class="hd"><div><h1>${t}</h1><div class="sub">${s}</div></div></div>`}
 function render(){
   let hd='',mn='';
-  if(V.tab==='tasks'){hd=hTitle('Задачи',dfull(today()));mn=taskView()}
+  if(V.tab==='home'){hd=hTitle('Главная',dfull(today()));mn=homeCard()+homeTasks()}
+  else if(V.tab==='tasks'){hd=hTitle('Задачи',dfull(today()));mn=taskView()}
   else if(V.tab==='habits'){
     const h=V.habitId&&S.habits.find(x=>x.id===V.habitId);
     if(h){hd=`<div class="hd"><button class="ib" data-act="back">‹</button><div class="hdt">${esc(h.emoji)} ${esc(h.name)}</div><button class="ib" data-act="eh" data-id="${h.id}">⋯</button></div>`;mn=habitDetail(h)}
@@ -570,6 +619,11 @@ document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='newTa
 try{tg&&tg.BackButton&&tg.BackButton.onClick(()=>ACT.back())}catch(e){}
 
 ACT.close=closeSheet;
+ACT.hv=t=>{V.homeView=(V.homeView+ +t.dataset.n+2)%2;hap();render()};
+ACT.hmcell=t=>{const d=t.dataset.d,fd={};S.habits.forEach(h=>{fd[h.id]=firstDay(h)});const o=dayOverall(d,fd);toast(`${dfull(d)}: ${o.n} из ${o.m}`)};
+let sx=null,sy=0;
+document.addEventListener('touchstart',e=>{const t=e.touches[0];sx=e.target.closest('.car')&&!e.target.closest('.hscroll')?t.clientX:null;sy=t.clientY},{passive:true});
+document.addEventListener('touchend',e=>{if(sx==null)return;const t=e.changedTouches[0],dx=t.clientX-sx;if(Math.abs(dx)>50&&Math.abs(t.clientY-sy)<40){V.homeView=(V.homeView+(dx<0?1:-1)+2)%2;hap();render()}sx=null},{passive:true});
 ACT.nav=t=>{V.tab=t.dataset.v;V.habitId=null;render();scrollTo(0,0)};
 ACT.pick=t=>{if(t.dataset.lock)return;const g=t.dataset.g;document.querySelectorAll(`.sh [data-g="${g}"]`).forEach(x=>x.classList.toggle('on',x===t));if(g==='type')syncHabit();hap()};
 /* tasks */
@@ -668,7 +722,7 @@ document.addEventListener('visibilitychange',()=>{
   else if(cs()&&S.ts!==getSynced()){clearTimeout(ct);cloudSave()}
 });
 try{tg&&tg.onEvent&&tg.onEvent('activated',()=>cloudSync(syncNote))}catch(e){}
-const VERSION='2026-11-17.2';
+const VERSION='2026-11-17.3';
 try{if(window.fetch)fetch('version.json?'+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>{
   if(j&&j.v&&j.v!==VERSION&&location.search.indexOf('v='+encodeURIComponent(j.v))<0)location.replace(location.pathname+'?v='+encodeURIComponent(j.v));
 }).catch(()=>{})}catch(e){}
