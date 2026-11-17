@@ -64,7 +64,14 @@ h3{font-size:13px;margin:0 0 12px;color:var(--mu);font-weight:600;text-transform
 .stp{display:flex;align-items:center;gap:4px;flex:none}
 .stp button{width:30px;height:34px;border-radius:10px;background:var(--cell);font-size:18px}
 .num{width:64px;text-align:center;border:0;background:none;font-weight:600;outline:none;padding:6px 0}
-.tm{border:0;background:var(--cell);border-radius:10px;padding:7px 8px;outline:none;flex:none;width:92px;text-align:center}
+.tm{border:0;background:var(--cell);border-radius:10px;padding:8px 10px;outline:none;flex:none;min-width:78px;text-align:center;font-weight:600;font-variant-numeric:tabular-nums;color:var(--tx);line-height:1.2}
+button.inp{text-align:left;font-weight:600;font-variant-numeric:tabular-nums;cursor:pointer}
+.tgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+.tgrid button{padding:10px 0;border-radius:10px;background:var(--cell);font-weight:600;font-variant-numeric:tabular-nums}
+.tgrid button.on{background:var(--ac);color:#fff}
+#tpWrap .bd{z-index:30}
+#tpWrap .sh{z-index:31}
+#tp_in{letter-spacing:.06em;font-variant-numeric:tabular-nums}
 .pb{height:5px;background:var(--cell);border-radius:5px;margin-top:11px;overflow:hidden}
 .pb i{display:block;height:100%;background:var(--c);border-radius:5px;transition:width .25s}
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
@@ -148,6 +155,7 @@ textarea.inp{min-height:110px;resize:vertical}
 <div id="app"><header id="hdr"></header><main id="main"></main></div>
 <nav id="nav"></nav>
 <div id="sheetWrap"></div>
+<div id="tpWrap"></div>
 <div id="toast"></div>
 
 <script>
@@ -396,7 +404,7 @@ function habitCard(h,d){
     sub=`${fmtN(+v||0)} / ${fmtN(h.goal)} ${esc(h.unit||'')}${stt}`;
     bar=`<div class="pb"><i style="width:${Math.min(100,(+v||0)/h.goal*100)}%"></i></div>`;
   }else{
-    ctl=`<input class="tm" type="time" data-chg="settime" data-id="${h.id}" value="${v||''}">`;
+    ctl=`<button class="tm" data-act="tpc" data-id="${h.id}">${v||'—:—'}</button>`;
     sub=`${h.limit==='before'?'не позже':'не раньше'} ${h.target}${stt}`;
   }
   return `<div class="card" style="--c:${h.color}"><div class="hrow"><div class="etile" data-act="oh" data-id="${h.id}">${esc(h.emoji)}</div><div class="hm" data-act="oh" data-id="${h.id}"><div class="nm">${esc(h.name)}</div><div class="sb">${sub}</div></div>${ctl}</div>${bar}</div>`;
@@ -452,7 +460,7 @@ function habitSheet(id){
   <label>Тип${h?' (нельзя изменить)':''}</label>
   <div class="chips">${[['check','Да / нет'],['count','Число'],['time','Время']].map(([v,l])=>`<button class="chip${x.type===v?' on':''}"${lock} data-act="pick" data-g="type" data-v="${v}">${l}</button>`).join('')}</div>
   <div id="g_count"><label>Цель в день</label><div class="row"><input id="f_g" type="number" inputmode="decimal" class="inp" value="${x.goal}"><input id="f_u" class="inp" placeholder="шагов, мл…" maxlength="12" value="${esc(x.unit||'')}"></div></div>
-  <div id="g_time"><label>Цель по времени</label><div class="chips" style="margin-bottom:8px">${[['before','Не позже'],['after','Не раньше']].map(([v,l])=>`<button class="chip${x.limit===v?' on':''}" data-act="pick" data-g="limit" data-v="${v}">${l}</button>`).join('')}</div><input id="f_t" type="time" class="inp" value="${x.target}"></div>
+  <div id="g_time"><label>Цель по времени</label><div class="chips" style="margin-bottom:8px">${[['before','Не позже'],['after','Не раньше']].map(([v,l])=>`<button class="chip${x.limit===v?' on':''}" data-act="pick" data-g="limit" data-v="${v}">${l}</button>`).join('')}</div><button type="button" class="inp" id="f_t" data-act="tpf" data-val="${x.target}">${x.target}</button></div>
   <label>Цвет</label><div class="sw">${SW.map(c=>`<button class="swb${x.color===c?' on':''}" style="background:${c}" data-act="pick" data-g="color" data-v="${c}"></button>`).join('')}</div>
   <div class="row" style="margin-top:20px"><button class="btn pri grow" data-act="saveHabit" data-id="${id||''}">Сохранить</button>${h?`<button class="btn dng" data-act="delHabit" data-id="${id}">Удалить</button>`:''}</div>`,syncHabit);
 }
@@ -461,7 +469,7 @@ function daySheet(id,d){
   const h=S.habits.find(x=>x.id===id);if(!h)return;const v=val(h,d);let body='';
   if(h.type==='check')body=`<div class="chips">${[['1','Выполнено ✓'],['0','Нет']].map(([k,l])=>`<button class="chip${(k==='1')===!!v?' on':''}" data-act="pick" data-g="v" data-v="${k}">${l}</button>`).join('')}</div>`;
   else if(h.type==='count')body=`<input id="f_v" class="inp" type="number" inputmode="decimal" value="${has(v)?v:''}" placeholder="0 ${esc(h.unit||'')}">`;
-  else body=`<input id="f_v" class="inp" type="time" value="${v||''}">`;
+  else body=`<button type="button" class="inp" id="f_v" data-act="tpf" data-val="${v||''}" data-hint="${h.target}">${v||'—:—'}</button>`;
   sheet(`<h2>${esc(h.emoji)} ${esc(h.name)}</h2><div class="sub" style="margin:-8px 0 12px">${dfull(d)}</div>${body}
   <div class="row" style="margin-top:18px"><button class="btn pri grow" data-act="saveDay" data-id="${id}" data-d="${d}">Сохранить</button><button class="btn dng" data-act="clrDay" data-id="${id}" data-d="${d}">Очистить</button></div>`);
 }
@@ -601,6 +609,7 @@ function render(){
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===V.tab));
   document.querySelectorAll('.hscroll').forEach(e=>{e.scrollLeft=e.scrollWidth});
   try{if(tg&&tg.BackButton){V.tab==='habits'&&V.habitId?tg.BackButton.show():tg.BackButton.hide()}}catch(e){}
+  kbSoon();
 }
 $('#nav').innerHTML=NAV.map(([k,l])=>`<button data-act="nav" data-v="${k}"><svg viewBox="0 0 24 24">${ICONS[k]}</svg>${l}</button>`).join('');
 
@@ -609,7 +618,7 @@ function sheet(html,mount){
   $('#sheetWrap').innerHTML=`<div class="bd" data-act="close"></div><div class="sh"><div class="grab"></div>${html}</div>`;
   document.body.classList.add('lock');if(mount)mount($('.sh'));
 }
-function closeSheet(){$('#sheetWrap').innerHTML='';document.body.classList.remove('lock')}
+function closeSheet(){$('#sheetWrap').innerHTML='';document.body.classList.remove('lock');kbSoon()}
 const gv=g=>{const e=document.querySelector(`.sh [data-g="${g}"].on`);return e?e.dataset.v:null};
 const numVal=s=>{const n=parseFloat(String(s).replace(',','.').replace(/\s/g,''));return isNaN(n)?null:n};
 
@@ -617,13 +626,61 @@ const numVal=s=>{const n=parseFloat(String(s).replace(',','.').replace(/\s/g,'')
 const ACT={},CHG={};
 document.addEventListener('click',e=>{const t=e.target.closest('[data-act]');if(!t)return;const f=ACT[t.dataset.act];if(f)f(t,e)});
 document.addEventListener('change',e=>{const t=e.target.closest('[data-chg]');if(!t)return;const f=CHG[t.dataset.chg];if(f)f(t,e)});
-document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='newTask')addTask()});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&e.target.id==='newTask')addTask();
+  if(e.key==='Enter'&&e.target.id==='tp_in'){e.preventDefault();ACT.tpDone()}
+  if(e.key==='Escape'&&TP)ACT.tpClose();
+});
+document.addEventListener('input',e=>{if(e.target.id==='tp_in')tpTyped(e.target)});
 try{tg&&tg.BackButton&&tg.BackButton.onClick(()=>ACT.back())}catch(e){}
 
 const isField=el=>!!el&&/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName);
 let kbT;
 document.addEventListener('focusin',e=>{if(!isField(e.target))return;clearTimeout(kbT);document.body.classList.add('kb');const el=e.target;setTimeout(()=>{try{if(document.activeElement===el)el.scrollIntoView({block:'center',behavior:'smooth'})}catch(_){}},350)});
-document.addEventListener('focusout',()=>{clearTimeout(kbT);kbT=setTimeout(()=>{if(!isField(document.activeElement))document.body.classList.remove('kb')},200)});
+const kbSoon=()=>{clearTimeout(kbT);kbT=setTimeout(()=>{if(!isField(document.activeElement))document.body.classList.remove('kb')},200)};
+document.addEventListener('focusout',kbSoon);
+/* ---------- time picker (24h) ---------- */
+let TP=null;
+const tpStr=()=>pad(TP.h)+':'+pad(TP.m);
+function tpMark(){
+  document.querySelectorAll('#tpWrap [data-act="tpH"]').forEach(b=>b.classList.toggle('on',+b.dataset.v===TP.h));
+  document.querySelectorAll('#tpWrap [data-act="tpM"]').forEach(b=>b.classList.toggle('on',+b.dataset.v===TP.m));
+}
+function tpSet(h,m){TP.h=h;TP.m=m;const i=$('#tp_in');if(i)i.value=tpStr();tpMark();hap()}
+function tpTyped(el){
+  let v=el.value.replace(/[^\d:]/g,'');
+  if(v.indexOf(':')<0){const dg=v.slice(0,4);v=dg.length>2?dg.slice(0,2)+':'+dg.slice(2):dg}
+  el.value=v.slice(0,5);
+  const mt=/^(\d{1,2}):(\d{2})$/.exec(el.value);
+  if(mt&&+mt[1]<24&&+mt[2]<60){TP.h=+mt[1];TP.m=+mt[2];tpMark()}
+}
+function pickTime(init,cb,clearable){
+  let h,m;
+  if(/^\d{1,2}:\d{2}$/.test(init||'')){const a=init.split(':').map(Number);h=a[0];m=a[1]}
+  else{const n=new Date();h=n.getHours();m=n.getMinutes()}
+  TP={h,m,cb,clearable:!!clearable};
+  $('#tpWrap').innerHTML=`<div class="bd" data-act="tpClose"></div><div class="sh"><div class="grab"></div><h2>Время</h2>
+  <input id="tp_in" class="inp big-in" inputmode="numeric" autocomplete="off" maxlength="5" value="${tpStr()}">
+  <label>Часы</label><div class="tgrid">${Array.from({length:24},(_,i)=>`<button class="${i===h?'on':''}" data-act="tpH" data-v="${i}">${pad(i)}</button>`).join('')}</div>
+  <label>Минуты</label><div class="tgrid">${Array.from({length:12},(_,i)=>`<button class="${i*5===m?'on':''}" data-act="tpM" data-v="${i*5}">${pad(i*5)}</button>`).join('')}</div>
+  <div class="row"><button class="btn grow" data-act="tpStep" data-n="-1">− 1 мин</button><button class="btn grow" data-act="tpStep" data-n="1">+ 1 мин</button><button class="btn grow" data-act="tpNow">Сейчас</button></div>
+  <div class="row" style="margin-top:14px"><button class="btn pri grow" data-act="tpDone">Готово</button>${clearable?'<button class="btn dng" data-act="tpClear">Очистить</button>':''}</div></div>`;
+  document.body.classList.add('lock');
+  try{if(matchMedia('(hover:hover) and (pointer:fine)').matches){const i=$('#tp_in');i.focus();i.select()}}catch(e){}
+}
+ACT.tpH=t=>tpSet(+t.dataset.v,TP.m);
+ACT.tpM=t=>tpSet(TP.h,+t.dataset.v);
+ACT.tpStep=t=>{const x=((TP.h*60+TP.m+ +t.dataset.n)%1440+1440)%1440;tpSet(Math.floor(x/60),x%60)};
+ACT.tpNow=()=>{const n=new Date();tpSet(n.getHours(),n.getMinutes())};
+ACT.tpClose=()=>{TP=null;$('#tpWrap').innerHTML='';if(!$('#sheetWrap').innerHTML)document.body.classList.remove('lock');kbSoon()};
+ACT.tpDone=()=>{
+  const i=$('#tp_in'),mt=/^(\d{1,2}):(\d{2})$/.exec(i?i.value:'');
+  if(!mt||+mt[1]>23||+mt[2]>59)return toast('Введи время как ЧЧ:ММ, например 23:30');
+  const cb=TP.cb,out=pad(+mt[1])+':'+pad(+mt[2]);ACT.tpClose();cb(out);
+};
+ACT.tpClear=()=>{const cb=TP.cb;ACT.tpClose();cb(null)};
+ACT.tpc=t=>{const h=S.habits.find(x=>x.id===t.dataset.id);pickTime(val(h,V.habitDate)||'',s=>{setVal(h,V.habitDate,s);hap();render()},true)};
+ACT.tpf=t=>pickTime(t.dataset.val||t.dataset.hint||'',s=>{t.dataset.val=s||'';t.textContent=s||'—:—'},false);
 ACT.close=closeSheet;
 ACT.hv=t=>{V.homeView=(V.homeView+ +t.dataset.n+2)%2;hap();render()};
 ACT.hmcell=t=>{const d=t.dataset.d,fd={};S.habits.forEach(h=>{fd[h.id]=firstDay(h)});const o=dayOverall(d,fd);toast(`${dfull(d)}: ${o.n} из ${o.m}`)};
@@ -653,7 +710,6 @@ ACT.chk=t=>{const h=S.habits.find(x=>x.id===t.dataset.id);setVal(h,V.habitDate,d
 ACT.inc=t=>{const h=S.habits.find(x=>x.id===t.dataset.id);setVal(h,V.habitDate,(+val(h,V.habitDate)||0)+stepOf(h));hap();render()};
 ACT.dec=t=>{const h=S.habits.find(x=>x.id===t.dataset.id);const n=Math.max(0,(+val(h,V.habitDate)||0)-stepOf(h));setVal(h,V.habitDate,n||null);hap();render()};
 CHG.setnum=t=>{const h=S.habits.find(x=>x.id===t.dataset.id);const n=numVal(t.value);setVal(h,V.habitDate,n==null||n<=0?null:n);render()};
-CHG.settime=t=>{const h=S.habits.find(x=>x.id===t.dataset.id);setVal(h,V.habitDate,t.value||null);hap();render()};
 ACT.oh=t=>{V.habitId=t.dataset.id;render();scrollTo(0,0)};
 ACT.back=()=>{V.habitId=null;render();scrollTo(0,0)};
 ACT.newHabit=()=>habitSheet(null);
@@ -663,7 +719,7 @@ ACT.saveHabit=t=>{
   const id=t.dataset.id,name=$('#f_n').value.trim();if(!name)return toast('Введи название');
   const type=gv('type')||'check';const o={name,emoji:$('#f_e').value.trim()||'✨',type,color:gv('color')||SW[0]};
   if(type==='count'){o.goal=numVal($('#f_g').value);if(!(o.goal>0))return toast('Цель должна быть больше нуля');o.unit=$('#f_u').value.trim()}
-  if(type==='time'){o.target=$('#f_t').value;if(!o.target)return toast('Укажи время');o.limit=gv('limit')||'before'}
+  if(type==='time'){o.target=$('#f_t').dataset.val;if(!o.target)return toast('Укажи время');o.limit=gv('limit')||'before'}
   if(id)Object.assign(S.habits.find(h=>h.id===id),o);else S.habits.push({id:uid(),created:today(),goal:1,unit:'',target:'23:30',limit:'before',...o});
   save();closeSheet();render();
 };
@@ -673,7 +729,7 @@ ACT.saveDay=t=>{
   const h=S.habits.find(x=>x.id===t.dataset.id);let v;
   if(h.type==='check')v=gv('v')==='1'?1:0;
   else if(h.type==='count'){v=numVal($('#f_v').value);if(v!=null&&v<=0)v=null}
-  else v=$('#f_v').value||null;
+  else v=$('#f_v').dataset.val||null;
   setVal(h,t.dataset.d,v);closeSheet();render();
 };
 ACT.clrDay=t=>{setVal(S.habits.find(x=>x.id===t.dataset.id),t.dataset.d,null);closeSheet();render()};
@@ -728,7 +784,7 @@ document.addEventListener('visibilitychange',()=>{
   else if(cs()&&S.ts!==getSynced()){clearTimeout(ct);cloudSave()}
 });
 try{tg&&tg.onEvent&&tg.onEvent('activated',()=>cloudSync(syncNote))}catch(e){}
-const VERSION='2026-11-17.4';
+const VERSION='2026-11-17.5';
 try{if(window.fetch)fetch('version.json?'+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>{
   if(j&&j.v&&j.v!==VERSION&&location.search.indexOf('v='+encodeURIComponent(j.v))<0)location.replace(location.pathname+'?v='+encodeURIComponent(j.v));
 }).catch(()=>{})}catch(e){}
