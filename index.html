@@ -12,6 +12,8 @@
 html,body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif}
 body{padding-bottom:calc(84px + env(safe-area-inset-bottom))}
 body.lock{overflow:hidden}
+body.kb #nav,body.kb .fab{display:none}
+body.kb{padding-bottom:45vh}
 #app{max-width:560px;margin:0 auto;padding:0 16px}
 button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;padding:0}
 input,textarea,select{font:inherit;font-size:16px;color:var(--tx)}
@@ -579,7 +581,7 @@ const ICONS={
  habits:'<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
  exp:'<rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/>',
  more:'<line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>'};
-const NAV=[['home','Главная'],['tasks','Задачи'],['habits','Привычки'],['exp','Расходы'],['more','Ещё']];
+const NAV=[['tasks','Задачи'],['habits','Привычки'],['home','Главная'],['exp','Расходы'],['more','Ещё']];
 function hTitle(t,s){return `<div class="hd"><div><h1>${t}</h1><div class="sub">${s}</div></div></div>`}
 function render(){
   let hd='',mn='';
@@ -618,6 +620,10 @@ document.addEventListener('change',e=>{const t=e.target.closest('[data-chg]');if
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='newTask')addTask()});
 try{tg&&tg.BackButton&&tg.BackButton.onClick(()=>ACT.back())}catch(e){}
 
+const isField=el=>!!el&&/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName);
+let kbT;
+document.addEventListener('focusin',e=>{if(!isField(e.target))return;clearTimeout(kbT);document.body.classList.add('kb');const el=e.target;setTimeout(()=>{try{if(document.activeElement===el)el.scrollIntoView({block:'center',behavior:'smooth'})}catch(_){}},350)});
+document.addEventListener('focusout',()=>{clearTimeout(kbT);kbT=setTimeout(()=>{if(!isField(document.activeElement))document.body.classList.remove('kb')},200)});
 ACT.close=closeSheet;
 ACT.hv=t=>{V.homeView=(V.homeView+ +t.dataset.n+2)%2;hap();render()};
 ACT.hmcell=t=>{const d=t.dataset.d,fd={};S.habits.forEach(h=>{fd[h.id]=firstDay(h)});const o=dayOverall(d,fd);toast(`${dfull(d)}: ${o.n} из ${o.m}`)};
@@ -722,7 +728,7 @@ document.addEventListener('visibilitychange',()=>{
   else if(cs()&&S.ts!==getSynced()){clearTimeout(ct);cloudSave()}
 });
 try{tg&&tg.onEvent&&tg.onEvent('activated',()=>cloudSync(syncNote))}catch(e){}
-const VERSION='2026-11-17.3';
+const VERSION='2026-11-17.4';
 try{if(window.fetch)fetch('version.json?'+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>{
   if(j&&j.v&&j.v!==VERSION&&location.search.indexOf('v='+encodeURIComponent(j.v))<0)location.replace(location.pathname+'?v='+encodeURIComponent(j.v));
 }).catch(()=>{})}catch(e){}
