@@ -203,8 +203,8 @@ const V={tab:'habits',taskTab:'today',habitDate:today(),habitId:null,month:today
 const cs=()=>(tg&&tg.isVersionAtLeast&&tg.isVersionAtLeast('6.9')&&tg.CloudStorage)||null;
 function cloudSave(cb){
   const c=cs();if(!c){cb&&cb(false);return}
-  const parts=chunk(JSON.stringify(S),3000);let left=parts.length+1,ok=true;
-  const fin=e=>{if(e)ok=false;if(--left===0&&cb)cb(ok)};
+  const snap=S.ts;const parts=chunk(JSON.stringify(S),3000);let left=parts.length+1,ok=true;
+  const fin=e=>{if(e)ok=false;if(--left===0){if(ok)setSynced(snap);if(cb)cb(ok)}};
   parts.forEach((p,i)=>c.setItem('bk'+i,p,fin));
   c.setItem('bkmeta',JSON.stringify({n:parts.length,ts:S.ts}),fin);
 }
@@ -220,7 +220,52 @@ function cloudLoad(cb){
     });
   });
 }
-let ct;function cloudSoon(){if(!cs())return;clearTimeout(ct);ct=setTimeout(()=>cloudSave(),4000)}
+let ct;function cloudSoon(){if(!cs())return;clearTimeout(ct);ct=setTimeout(()=>cloudSave(),1500)}
+const getSynced=()=>{try{return +localStorage.getItem('lifetracker.sync')||0}catch(e){return 0}};
+const setSynced=t=>{try{localStorage.setItem('lifetracker.sync',String(t))}catch(e){}};
+const persistLocal=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+const refresh=()=>{if(!document.querySelector('.sh'))render()};
+function mergeState(a,b){
+  const hi=a.ts>=b.ts?a:b,lo=hi===a?b:a;
+  const out=JSON.parse(JSON.stringify(hi));
+  const addMissing=(arr,from)=>{const ids=new Set(arr.map(x=>x.id));from.forEach(x=>{if(!ids.has(x.id))arr.push(x)})};
+  addMissing(out.tasks,lo.tasks);addMissing(out.expenses,lo.expenses);addMissing(out.cats,lo.cats);
+  const key=h=>h.type+'|'+String(h.name).trim().toLowerCase();
+  const map={};
+  lo.habits.forEach(h=>{
+    const same=out.habits.find(x=>x.id===h.id)||out.habits.find(x=>key(x)===key(h));
+    if(same)map[h.id]=same.id;else{out.habits.push(h);map[h.id]=h.id}
+  });
+  Object.keys(lo.logs).forEach(hid=>{
+    const m=map[hid];if(!m)return;const L=out.logs[m]||(out.logs[m]={});
+    Object.keys(lo.logs[hid]).forEach(d=>{if(!(d in L))L[d]=lo.logs[hid][d]});
+  });
+  out.set=Object.assign({},lo.set,hi.set);if(!out.set.budget)out.set.budget=lo.set.budget||0;
+  out.v=1;return out;
+}
+let syncing=false;
+function cloudSync(done){
+  const c=cs();if(!c){done&&done('off');return}
+  if(syncing){done&&done('busy');return}
+  syncing=true;const fin=r=>{syncing=false;done&&done(r)};
+  const emptyLocal=()=>!S.tasks.length&&!S.habits.length&&!S.expenses.length;
+  c.getItem('bkmeta',(e,m)=>{
+    if(e){fin('err');return}
+    let meta=null;try{meta=m?JSON.parse(m):null}catch(_){}
+    const last=getSynced(),localChanged=S.ts!==last;
+    if(!meta){if(!emptyLocal())cloudSave(ok=>fin(ok?'pushed':'err'));else fin('same');return}
+    const cloudChanged=meta.ts!==last;
+    if(!cloudChanged&&!localChanged){fin('same');return}
+    if(!cloudChanged){cloudSave(ok=>fin(ok?'pushed':'err'));return}
+    cloudLoad(o=>{
+      if(!o){fin('err');return}
+      if(!localChanged||emptyLocal()){S=o;persistLocal();setSynced(o.ts);refresh();fin('pulled');return}
+      S=mergeState(S,o);S.ts=Date.now();persistLocal();refresh();
+      cloudSave(ok=>fin(ok?'merged':'err'));
+    });
+  });
+}
+const syncNote=r=>{if(r==='pulled'||r==='merged')toast('Данные обновлены из облака')};
 
 /* ---------- habits logic ---------- */
 const isNight=h=>h.type==='time'&&(toMin(h.target)>=1080||toMin(h.target)<=240);
@@ -473,7 +518,7 @@ function moreView(){
    <div class="set"><span>Бюджет на месяц</span><input class="inp" data-chg="budget" type="number" inputmode="decimal" placeholder="0" value="${S.set.budget||''}"></div></div>
   <div class="card"><h3>Категории расходов</h3><div class="chips">${S.cats.map(c=>`<span class="chip" style="display:inline-flex;align-items:center">${esc(c.e)} ${esc(c.n)}<button class="xb" data-act="delCat" data-id="${c.id}">×</button></span>`).join('')}<button class="chip on" data-act="newCat">+ Добавить</button></div></div>
   <div class="card"><h3>Данные</h3>
-   ${cs()?`<div class="row"><button class="btn grow" data-act="cloudSave">☁️ Сохранить в Telegram</button><button class="btn grow" data-act="cloudRestore">Восстановить</button></div><div class="note">Копия хранится в облаке Telegram и подтягивается сама, если на устройстве данных нет. Автосохранение — через пару секунд после изменений.</div>`:''}
+   ${cs()?`<button class="btn pri full" data-act="cloudSync" style="margin-top:0">🔄 Синхронизировать</button><div class="row"><button class="btn grow" data-act="cloudSave">☁️ Отправить</button><button class="btn grow" data-act="cloudRestore">Загрузить из облака</button></div><div class="note">Синхронизация идёт сама при открытии приложения и через пару секунд после изменений. Если данные менялись на двух устройствах, они объединяются. Удаления при таком объединении могут вернуться.</div>`:''}
    <div class="row"><button class="btn grow" data-act="copyExp">Копировать экспорт</button><button class="btn grow" data-act="dlExp">Скачать файл</button></div>
    <button class="btn full" data-act="impSheet">Импорт данных</button>
    <button class="btn dng full" data-act="reset">Стереть всё</button>
@@ -611,13 +656,22 @@ ACT.idea=()=>{
   window.open(url,'_blank');
 };
 ACT.reset=()=>ask('Стереть ВСЕ данные? Это нельзя отменить.',()=>{S=fresh();save();V.habitId=null;render();toast('Данные стёрты')});
+ACT.cloudSync=()=>{toast('Синхронизирую…');cloudSync(r=>{toast({same:'Всё уже синхронизировано',pushed:'Отправлено в облако ☁️',pulled:'Загружено из облака',merged:'Данные объединены',err:'Не удалось синхронизировать',off:'Облако Telegram недоступно',busy:'Синхронизация уже идёт'}[r]||'Готово')})};
 ACT.cloudSave=()=>{toast('Сохраняю…');cloudSave(ok=>toast(ok?'Сохранено в Telegram ☁️':'Не удалось сохранить'))};
-ACT.cloudRestore=()=>cloudLoad(o=>{if(!o)return toast('В облаке ничего нет');ask('Заменить текущие данные копией из Telegram?',()=>{S=o;try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}render();toast('Восстановлено')})});
+ACT.cloudRestore=()=>cloudLoad(o=>{if(!o)return toast('В облаке ничего нет');ask('Заменить текущие данные копией из Telegram?',()=>{S=o;persistLocal();setSynced(o.ts);render();toast('Загружено из облака')})});
 
 /* ---------- start ---------- */
 render();
-const empty=!S.tasks.length&&!S.habits.length&&!S.expenses.length;
-if(empty&&cs())cloudLoad(o=>{if(o){S=o;try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}render();toast('Данные восстановлены из Telegram')}});
+cloudSync(syncNote);
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible')cloudSync(syncNote);
+  else if(cs()&&S.ts!==getSynced()){clearTimeout(ct);cloudSave()}
+});
+try{tg&&tg.onEvent&&tg.onEvent('activated',()=>cloudSync(syncNote))}catch(e){}
+const VERSION='2026-11-17.2';
+try{if(window.fetch)fetch('version.json?'+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>{
+  if(j&&j.v&&j.v!==VERSION&&location.search.indexOf('v='+encodeURIComponent(j.v))<0)location.replace(location.pathname+'?v='+encodeURIComponent(j.v));
+}).catch(()=>{})}catch(e){}
 })();
 </script>
 </body>
