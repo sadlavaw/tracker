@@ -66,12 +66,18 @@ h3{font-size:13px;margin:0 0 12px;color:var(--mu);font-weight:600;text-transform
 .num{width:64px;text-align:center;border:0;background:none;font-weight:600;outline:none;padding:6px 0}
 .tm{border:0;background:var(--cell);border-radius:10px;padding:8px 10px;outline:none;flex:none;min-width:78px;text-align:center;font-weight:600;font-variant-numeric:tabular-nums;color:var(--tx);line-height:1.2}
 button.inp{text-align:left;font-weight:600;font-variant-numeric:tabular-nums;cursor:pointer}
-.tgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
-.tgrid button{padding:10px 0;border-radius:10px;background:var(--cell);font-weight:600;font-variant-numeric:tabular-nums}
-.tgrid button.on{background:var(--ac);color:#fff}
+.wheels{position:relative;display:flex;justify-content:center;align-items:center;height:200px;margin:10px 0 6px}
+.wband{position:absolute;left:8px;right:8px;top:80px;height:40px;border-radius:12px;background:var(--cell)}
+.wheel{position:relative;z-index:1;width:96px;height:200px;overflow-y:auto;scroll-snap-type:y mandatory;scrollbar-width:none;overscroll-behavior:contain;touch-action:pan-y;outline:none;-webkit-mask-image:linear-gradient(transparent,#000 30%,#000 70%,transparent);mask-image:linear-gradient(transparent,#000 30%,#000 70%,transparent)}
+.wheel::-webkit-scrollbar{display:none}
+.wpad{height:80px}
+.wi{height:40px;line-height:40px;text-align:center;font-size:22px;font-variant-numeric:tabular-nums;scroll-snap-align:center;opacity:.3;cursor:pointer;user-select:none;-webkit-user-select:none}
+.wi.nr{opacity:.6}
+.wi.sel{opacity:1;font-weight:700}
+.wcolon{position:relative;z-index:1;width:16px;text-align:center;font-size:22px;font-weight:700}
 #tpWrap .bd{z-index:30}
 #tpWrap .sh{z-index:31}
-#tp_in{letter-spacing:.06em;font-variant-numeric:tabular-nums}
+#tp_in{letter-spacing:.06em;font-variant-numeric:tabular-nums;font-size:28px!important;padding:8px!important}
 .pb{height:5px;background:var(--cell);border-radius:5px;margin-top:11px;overflow:hidden}
 .pb i{display:block;height:100%;background:var(--c);border-radius:5px;transition:width .25s}
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
@@ -631,52 +637,91 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Enter'&&e.target.id==='tp_in'){e.preventDefault();ACT.tpDone()}
   if(e.key==='Escape'&&TP)ACT.tpClose();
 });
-document.addEventListener('input',e=>{if(e.target.id==='tp_in')tpTyped(e.target)});
+document.addEventListener('input',e=>{if(e.target.id==='tp_in')tpTyped(e.target,e)});
+document.addEventListener('click',e=>{if(e.target.id==='tp_in'){try{e.target.select()}catch(_){}}});
 try{tg&&tg.BackButton&&tg.BackButton.onClick(()=>ACT.back())}catch(e){}
 
 const isField=el=>!!el&&/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName);
 let kbT;
-document.addEventListener('focusin',e=>{if(!isField(e.target))return;clearTimeout(kbT);document.body.classList.add('kb');const el=e.target;setTimeout(()=>{try{if(document.activeElement===el)el.scrollIntoView({block:'center',behavior:'smooth'})}catch(_){}},350)});
+document.addEventListener('focusin',e=>{if(!isField(e.target))return;if(e.target.id==='tp_in'){const el=e.target;setTimeout(()=>{try{el.select()}catch(_){}},0)}clearTimeout(kbT);document.body.classList.add('kb');const el=e.target;setTimeout(()=>{try{if(document.activeElement===el)el.scrollIntoView({block:'center',behavior:'smooth'})}catch(_){}},350)});
 const kbSoon=()=>{clearTimeout(kbT);kbT=setTimeout(()=>{if(!isField(document.activeElement))document.body.classList.remove('kb')},200)};
 document.addEventListener('focusout',kbSoon);
-/* ---------- time picker (24h) ---------- */
-let TP=null;
+/* ---------- time picker (24h, scroll wheels) ---------- */
+let TP=null;const WH=40;
 const tpStr=()=>pad(TP.h)+':'+pad(TP.m);
-function tpMark(){
-  document.querySelectorAll('#tpWrap [data-act="tpH"]').forEach(b=>b.classList.toggle('on',+b.dataset.v===TP.h));
-  document.querySelectorAll('#tpWrap [data-act="tpM"]').forEach(b=>b.classList.toggle('on',+b.dataset.v===TP.m));
+const hapSel=()=>{try{tg&&tg.HapticFeedback&&tg.HapticFeedback.selectionChanged()}catch(e){}};
+const wEl=k=>$('#tpw_'+k);
+function wMark(k,i){
+  const el=wEl(k);if(!el)return;
+  el.querySelectorAll('.wi.sel,.wi.nr').forEach(x=>x.classList.remove('sel','nr'));
+  [i-1,i+1].forEach(j=>{const x=el.querySelector(`.wi[data-i="${j}"]`);if(x)x.classList.add('nr')});
+  const c=el.querySelector(`.wi[data-i="${i}"]`);if(c)c.classList.add('sel');
 }
-function tpSet(h,m){TP.h=h;TP.m=m;const i=$('#tp_in');if(i)i.value=tpStr();tpMark();hap()}
-function tpTyped(el){
+const wGo=(k,i)=>{const el=wEl(k);if(el)el.scrollTop=i*WH};
+function tpSet(h,m,src){
+  if(!TP)return;TP.h=h;TP.m=m;
+  if(src!=='scroll'){wGo('h',h);wGo('m',m)}
+  wMark('h',h);wMark('m',m);
+  if(src!=='typed'){const i=$('#tp_in');if(i)i.value=tpStr()}
+}
+function tpAdd(d){const x=((TP.h*60+TP.m+d)%1440+1440)%1440;tpSet(Math.floor(x/60),x%60)}
+const parseT=v=>{const t=String(v||'').trim();const m=/^(\d{1,2})[:.\s](\d{1,2})$/.exec(t)||/^(\d{1,2})(\d{2})$/.exec(t);if(!m)return null;const h=+m[1],mi=+m[2];if(h>23||mi>59||(/[:.\s]/.test(t)&&m[2].length<2))return null;return [h,mi]};
+function tpTyped(el,ev){
   let v=el.value.replace(/[^\d:]/g,'');
-  if(v.indexOf(':')<0){const dg=v.slice(0,4);v=dg.length>2?dg.slice(0,2)+':'+dg.slice(2):dg}
-  el.value=v.slice(0,5);
-  const mt=/^(\d{1,2}):(\d{2})$/.exec(el.value);
-  if(mt&&+mt[1]<24&&+mt[2]<60){TP.h=+mt[1];TP.m=+mt[2];tpMark()}
+  const del=ev&&ev.inputType&&ev.inputType.indexOf('delete')===0;
+  if(!del&&v.indexOf(':')<0&&v.length){
+    if(+v[0]>2||(v.length>=2&&+v.slice(0,2)>23))v=v[0]+':'+v.slice(1);
+    else if(v.length>2)v=v.slice(0,2)+':'+v.slice(2);
+  }
+  v=v.slice(0,5);
+  if(v!==el.value)el.value=v;
+  const r=parseT(v);if(r)tpSet(r[0],r[1],'typed');
 }
+function wheelHTML(k,n){return `<div class="wheel" id="tpw_${k}" tabindex="0"><div class="wpad"></div>${Array.from({length:n},(_,i)=>`<div class="wi" data-act="wi" data-k="${k}" data-i="${i}">${pad(i)}</div>`).join('')}<div class="wpad"></div></div>`}
 function pickTime(init,cb,clearable){
   let h,m;
   if(/^\d{1,2}:\d{2}$/.test(init||'')){const a=init.split(':').map(Number);h=a[0];m=a[1]}
   else{const n=new Date();h=n.getHours();m=n.getMinutes()}
   TP={h,m,cb,clearable:!!clearable};
   $('#tpWrap').innerHTML=`<div class="bd" data-act="tpClose"></div><div class="sh"><div class="grab"></div><h2>Время</h2>
-  <input id="tp_in" class="inp big-in" inputmode="numeric" autocomplete="off" maxlength="5" value="${tpStr()}">
-  <label>Часы</label><div class="tgrid">${Array.from({length:24},(_,i)=>`<button class="${i===h?'on':''}" data-act="tpH" data-v="${i}">${pad(i)}</button>`).join('')}</div>
-  <label>Минуты</label><div class="tgrid">${Array.from({length:12},(_,i)=>`<button class="${i*5===m?'on':''}" data-act="tpM" data-v="${i*5}">${pad(i*5)}</button>`).join('')}</div>
-  <div class="row"><button class="btn grow" data-act="tpStep" data-n="-1">− 1 мин</button><button class="btn grow" data-act="tpStep" data-n="1">+ 1 мин</button><button class="btn grow" data-act="tpNow">Сейчас</button></div>
+  <input id="tp_in" class="inp big-in" inputmode="numeric" autocomplete="off" value="${tpStr()}">
+  <div class="wheels"><div class="wband"></div>${wheelHTML('h',24)}<div class="wcolon">:</div>${wheelHTML('m',60)}</div>
+  <div class="row"><button class="btn grow" data-act="tpNow">Сейчас</button><button class="btn grow" data-act="tpPlus">+20 мин</button></div>
   <div class="row" style="margin-top:14px"><button class="btn pri grow" data-act="tpDone">Готово</button>${clearable?'<button class="btn dng" data-act="tpClear">Очистить</button>':''}</div></div>`;
   document.body.classList.add('lock');
+  ['h','m'].forEach(k=>{
+    const el=wEl(k),n=k==='h'?24:60;let raf=0,acc=0;
+    el.addEventListener('scroll',()=>{
+      if(raf)return;
+      raf=requestAnimationFrame(()=>{raf=0;if(!TP)return;
+        const idx=Math.max(0,Math.min(n-1,Math.round(el.scrollTop/WH)));
+        if(idx!==(k==='h'?TP.h:TP.m)){hapSel();tpSet(k==='h'?idx:TP.h,k==='m'?idx:TP.m,'scroll')}
+      });
+    },{passive:true});
+    el.addEventListener('wheel',e=>{
+      e.preventDefault();
+      const dy=e.deltaMode===1?e.deltaY*40:e.deltaY;let step=0;
+      if(Math.abs(dy)>=50)step=Math.sign(dy);else{acc+=dy;if(Math.abs(acc)>=40){step=Math.sign(acc);acc=0}}
+      if(step){const cur=k==='h'?TP.h:TP.m,nx=Math.max(0,Math.min(n-1,cur+step));tpSet(k==='h'?nx:TP.h,k==='m'?nx:TP.m)}
+    },{passive:false});
+  });
+  tpSet(h,m);
   try{if(matchMedia('(hover:hover) and (pointer:fine)').matches){const i=$('#tp_in');i.focus();i.select()}}catch(e){}
 }
-ACT.tpH=t=>tpSet(+t.dataset.v,TP.m);
-ACT.tpM=t=>tpSet(TP.h,+t.dataset.v);
-ACT.tpStep=t=>{const x=((TP.h*60+TP.m+ +t.dataset.n)%1440+1440)%1440;tpSet(Math.floor(x/60),x%60)};
-ACT.tpNow=()=>{const n=new Date();tpSet(n.getHours(),n.getMinutes())};
+document.addEventListener('keydown',e=>{
+  if(!TP||(e.key!=='ArrowUp'&&e.key!=='ArrowDown'))return;
+  const t=e.target,d=e.key==='ArrowUp'?-1:1;
+  if(t.classList&&t.classList.contains('wheel')){e.preventDefault();const k=t.id==='tpw_h'?'h':'m';const n=k==='h'?24:60,cur=k==='h'?TP.h:TP.m,nx=Math.max(0,Math.min(n-1,cur+d));tpSet(k==='h'?nx:TP.h,k==='m'?nx:TP.m)}
+  else if(t.id==='tp_in'){e.preventDefault();tpAdd((e.shiftKey?10:1)*-d)}
+});
+ACT.wi=t=>{const i=+t.dataset.i;t.dataset.k==='h'?tpSet(i,TP.m):tpSet(TP.h,i)};
+ACT.tpNow=()=>{const n=new Date();tpSet(n.getHours(),n.getMinutes());hap()};
+ACT.tpPlus=()=>{tpAdd(20);hap()};
 ACT.tpClose=()=>{TP=null;$('#tpWrap').innerHTML='';if(!$('#sheetWrap').innerHTML)document.body.classList.remove('lock');kbSoon()};
 ACT.tpDone=()=>{
-  const i=$('#tp_in'),mt=/^(\d{1,2}):(\d{2})$/.exec(i?i.value:'');
-  if(!mt||+mt[1]>23||+mt[2]>59)return toast('Введи время как ЧЧ:ММ, например 23:30');
-  const cb=TP.cb,out=pad(+mt[1])+':'+pad(+mt[2]);ACT.tpClose();cb(out);
+  const i=$('#tp_in'),r=parseT(i?i.value:'');
+  if(!r)return toast('Введи время как ЧЧ:ММ, например 23:30');
+  const cb=TP.cb,out=pad(r[0])+':'+pad(r[1]);ACT.tpClose();cb(out);
 };
 ACT.tpClear=()=>{const cb=TP.cb;ACT.tpClose();cb(null)};
 ACT.tpc=t=>{const h=S.habits.find(x=>x.id===t.dataset.id);pickTime(val(h,V.habitDate)||'',s=>{setVal(h,V.habitDate,s);hap();render()},true)};
@@ -784,7 +829,7 @@ document.addEventListener('visibilitychange',()=>{
   else if(cs()&&S.ts!==getSynced()){clearTimeout(ct);cloudSave()}
 });
 try{tg&&tg.onEvent&&tg.onEvent('activated',()=>cloudSync(syncNote))}catch(e){}
-const VERSION='2026-11-17.5';
+const VERSION='2026-11-24.1';
 try{if(window.fetch)fetch('version.json?'+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>{
   if(j&&j.v&&j.v!==VERSION&&location.search.indexOf('v='+encodeURIComponent(j.v))<0)location.replace(location.pathname+'?v='+encodeURIComponent(j.v));
 }).catch(()=>{})}catch(e){}
