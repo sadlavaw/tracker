@@ -1,0 +1,14 @@
+name = "tracker-bot"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "tracker"
+database_id = "ВСТАВЬ_СЮДА_database_id"
+
+[vars]
+# Твой Telegram ID (число). Узнаешь на шаге 7 в README.
+OWNER_ID = ""
+# Адрес сайта с приложением (только origin, без пути)
+ALLOWED_ORIGIN = "https://sadlavaw.github.io"

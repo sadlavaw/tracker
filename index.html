@@ -282,14 +282,14 @@ function cloudSync(done){
   c.getItem('bkmeta',(e,m)=>{
     if(e){fin('err');return}
     let meta=null;try{meta=m?JSON.parse(m):null}catch(_){}
-    const last=getSynced(),localChanged=S.ts!==last;
+    const last=getSynced(),localChanged=S.ts!==last,tsSeen=S.ts;
     if(!meta){if(!emptyLocal())cloudSave(ok=>fin(ok?'pushed':'err'));else fin('same');return}
     const cloudChanged=meta.ts!==last;
     if(!cloudChanged&&!localChanged){fin('same');return}
     if(!cloudChanged){cloudSave(ok=>fin(ok?'pushed':'err'));return}
     cloudLoad(o=>{
       if(!o){fin('err');return}
-      if(!localChanged||emptyLocal()){S=o;persistLocal();setSynced(o.ts);refresh();fin('pulled');return}
+      if((!localChanged&&S.ts===tsSeen)||emptyLocal()){S=o;persistLocal();setSynced(o.ts);refresh();fin('pulled');return}
       S=mergeState(S,o);S.ts=Date.now();persistLocal();refresh();
       cloudSave(ok=>fin(ok?'merged':'err'));
     });
@@ -956,13 +956,44 @@ ACT.cloudRestore=()=>cloudLoad(o=>{if(!o)return toast('В облаке ниче�
 
 /* ---------- start ---------- */
 render();
-cloudSync(syncNote);
+
+/* ---------- inbox from the Telegram bot ---------- */
+const API_URL='';
+let pulling=false;
+function pullInbox(){
+  if(!API_URL||!inTG||pulling)return;
+  if(syncing){setTimeout(pullInbox,1500);return}
+  pulling=true;
+  const hdr={Authorization:'tma '+tg.initData};
+  fetch(API_URL+'/api/inbox',{headers:hdr,cache:'no-store'}).then(r=>r.ok?r.json():null).then(j=>{
+    if(!j||!Array.isArray(j.items)||!j.items.length)return;
+    let n=0,maxId=0;
+    j.items.forEach(it=>{
+      maxId=Math.max(maxId,it.id);const id='b'+it.id,base=ds(new Date(it.ts));
+      if(it.kind==='task'){
+        if(S.tasks.some(t=>t.id===id))return;
+        const t={id,title:String(it.text||'').slice(0,200),done:false,doneAt:null,created:it.ts};
+        if(it.bucket==='today'||it.bucket==='tomorrow'){t.type='day';t.date=it.bucket==='today'?base:addDays(base,1)}
+        else t.type=it.bucket==='long'?'long':'short';
+        S.tasks.push(t);n++;
+      }else if(it.kind==='expense'){
+        if(S.expenses.some(e=>e.id===id))return;
+        const cat=S.cats.some(c=>c.id==='other')?'other':(S.cats[0]?S.cats[0].id:'other');
+        S.expenses.push({id,amount:Math.round(+it.amount*100)/100,cat,note:String(it.text||'').slice(0,60),date:base});n++;
+      }
+    });
+    if(n){save();refresh();toast(`Из чата добавлено: ${n}`)}
+    return fetch(API_URL+'/api/ack',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},hdr),body:JSON.stringify({upTo:maxId})});
+  }).catch(()=>{}).then(()=>{pulling=false});
+}
+const syncAll=()=>cloudSync(r=>{syncNote(r);pullInbox()});
+syncAll();
 document.addEventListener('visibilitychange',()=>{
-  if(document.visibilityState==='visible')cloudSync(syncNote);
+  if(document.visibilityState==='visible')syncAll();
   else if(cs()&&S.ts!==getSynced()){clearTimeout(ct);cloudSave()}
 });
-try{tg&&tg.onEvent&&tg.onEvent('activated',()=>cloudSync(syncNote))}catch(e){}
-const VERSION='2026-11-24.3';
+try{tg&&tg.onEvent&&tg.onEvent('activated',syncAll)}catch(e){}
+const VERSION='2026-11-25.1';
 try{if(window.fetch)fetch('version.json?'+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>{
   if(j&&j.v&&j.v!==VERSION&&location.search.indexOf('v='+encodeURIComponent(j.v))<0)location.replace(location.pathname+'?v='+encodeURIComponent(j.v));
 }).catch(()=>{})}catch(e){}
