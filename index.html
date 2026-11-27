@@ -958,7 +958,7 @@ ACT.cloudRestore=()=>cloudLoad(o=>{if(!o)return toast('В облаке ниче�
 render();
 
 /* ---------- inbox from the Telegram bot ---------- */
-const API_URL='';
+const API_URL='https://tracker-bot.eeney.workers.dev';
 let pulling=false;
 function pullInbox(){
   if(!API_URL||!inTG||pulling)return;
@@ -993,7 +993,7 @@ document.addEventListener('visibilitychange',()=>{
   else if(cs()&&S.ts!==getSynced()){clearTimeout(ct);cloudSave()}
 });
 try{tg&&tg.onEvent&&tg.onEvent('activated',syncAll)}catch(e){}
-const VERSION='2026-11-25.1';
+const VERSION='2026-11-27.1';
 try{if(window.fetch)fetch('version.json?'+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>{
   if(j&&j.v&&j.v!==VERSION&&location.search.indexOf('v='+encodeURIComponent(j.v))<0)location.replace(location.pathname+'?v='+encodeURIComponent(j.v));
 }).catch(()=>{})}catch(e){}
