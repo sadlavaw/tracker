@@ -142,7 +142,7 @@ button.inp{text-align:left;font-weight:600;font-variant-numeric:tabular-nums;cur
 @media (max-width:400px){#nav{padding-left:2px;padding-right:2px}#nav button{font-size:10px}}
 #nav svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .bd{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:20;animation:fi .2s}
-.sh{position:fixed;left:0;right:0;bottom:0;max-width:560px;margin:0 auto;background:var(--card);border-radius:24px 24px 0 0;padding:10px 18px calc(20px + env(safe-area-inset-bottom));z-index:21;max-height:88vh;max-height:92dvh;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;animation:su .25s ease}
+.sh{position:fixed;left:0;right:0;bottom:0;max-width:560px;margin:0 auto;background:var(--card);border-radius:24px 24px 0 0;padding:10px 18px calc(20px + env(safe-area-inset-bottom));z-index:21;max-height:calc(100vh - 70px);max-height:calc(100dvh - 70px);overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;animation:su .25s ease}
 .sh.sh2{padding-bottom:0}
 .grab{width:38px;height:4px;border-radius:4px;background:var(--cell);margin:0 auto 12px}
 .sh label{display:block;font-size:12px;color:var(--mu);margin:12px 0 6px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
@@ -165,14 +165,21 @@ button.inp{text-align:left;font-weight:600;font-variant-numeric:tabular-nums;cur
 .amt i{position:absolute;right:16px;top:50%;transform:translateY(-50%);font-style:normal;font-size:22px;font-weight:600;color:var(--mu);pointer-events:none}
 .ops{display:flex;gap:6px;margin-top:8px}
 .ops button{flex:1;height:40px;border-radius:11px;background:var(--cell);font-size:19px;font-weight:600;padding:0}
-.calc:empty{display:none}
-.calc{margin-top:8px;display:flex;align-items:center;gap:10px}
+.calc{min-height:40px;margin-top:8px;display:flex;align-items:center;gap:10px}
 .calc .chip{font-size:16px;font-weight:600}
 .qrow{display:flex;gap:8px;align-items:center}
 .qrow .inp{width:92px;flex:none}
 .units{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;flex:1;min-width:0}
 .units::-webkit-scrollbar{display:none}
 .units .chip{flex:none}
+.stsel{width:100%;display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:14px;background:var(--cell);text-align:left;font-size:15px}
+.stsel .grow{flex:1;min-width:0}.stsel .chev{color:var(--mut);transition:transform .2s}.stsel.open .chev{transform:rotate(180deg)}
+.stsel .none{width:34px;height:34px;border-radius:11px;border:1.5px dashed var(--ln);display:flex;align-items:center;justify-content:center;color:var(--mut)}
+.stg[hidden]{display:none}.stg{margin-top:8px}
+.slides{display:flex;align-items:flex-start;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;margin:0 -16px;overscroll-behavior-x:contain}
+.slides::-webkit-scrollbar{display:none}
+.slide{flex:0 0 100%;scroll-snap-align:center;min-width:0;padding:0 16px;box-sizing:border-box}
+.slide>.card{margin-bottom:0}
 .stg{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
 .stb{display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 2px 7px;border-radius:12px;background:var(--cell);font-size:11.5px;min-width:0}
 .stb .n{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -563,6 +570,8 @@ const sumE=a=>a.reduce((s,e)=>s+e.amount,0);
 const daysIn=m=>{const [y,mo]=m.split('-').map(Number);return new Date(y,mo,0).getDate()};
 const shiftMonth=(m,n)=>{const [y,mo]=m.split('-').map(Number);const d=new Date(y,mo-1+n,1);return `${d.getFullYear()}-${pad(d.getMonth()+1)}`};
 function dayMap(){const o={};S.expenses.forEach(e=>{o[e.date]=(o[e.date]||0)+e.amount});return o}
+function car(id,sl){sl=sl.filter(Boolean);if(sl.length<2)return sl.join('');
+  return `<div class="slides" data-car="${id}">${sl.map(x=>`<div class="slide">${x}</div>`).join('')}</div><div class="dots" data-dots="${id}">${sl.map((_,i)=>`<i class="${i===(V.car&&V.car[id]||0)?'on':''}"></i>`).join('')}</div>`}
 function expView(){
   const m=V.month,list=monthExp(m),tot=sumE(list),nd=daysIn(m),cm=today().slice(0,7),isCur=m===cm;
   const elapsed=isCur?+today().slice(8):(m>cm?0:nd);
@@ -576,22 +585,24 @@ function expView(){
   if(!list.length)return h+`<div class="empty">В этом месяце трат нет.<br>Нажми «+», чтобы добавить.</div>`;
   const by={};list.forEach(e=>{by[e.cat]=(by[e.cat]||0)+e.amount});
   const rows=Object.entries(by).sort((a,b)=>b[1]-a[1]);
-  h+=`<div class="card"><h3>Категории</h3><div class="stack">${rows.map(([k,v])=>`<i style="flex:${v};background:${catOf(k).c}"></i>`).join('')}</div>
+  const c1=`<div class="card"><h3>Категории</h3><div class="stack">${rows.map(([k,v])=>`<i style="flex:${v};background:${catOf(k).c}"></i>`).join('')}</div>
    ${rows.map(([k,v])=>{const c=catOf(k);return `<div class="crow"><div class="dot" style="background:color-mix(in srgb,${c.c} 18%,transparent)">${esc(c.e)}</div><div class="grow"><b>${esc(c.n)}</b></div><div class="r">${money(v)}<small>${Math.round(v/tot*100)}%</small></div></div>`}).join('')}</div>`;
   const bs={};list.forEach(e=>{if(storeOf(e.store))bs[e.store]=(bs[e.store]||0)+e.amount});
   const srows=Object.entries(bs).sort((a,b)=>b[1]-a[1]);
-  if(srows.length)h+=`<div class="card"><h3>Магазины</h3>${srows.map(([k,v])=>{const st=storeOf(k);return `<div class="crow">${stile(st,true)}<div class="grow"><b>${esc(st.n)}</b></div><div class="r">${money(v)}<small>${Math.round(v/tot*100)}%</small></div></div>`}).join('')}</div>`;
+  const c2=!srows.length?'':`<div class="card"><h3>Магазины</h3>${srows.map(([k,v])=>{const st=storeOf(k);return `<div class="crow">${stile(st,true)}<div class="grow"><b>${esc(st.n)}</b></div><div class="r">${money(v)}<small>${Math.round(v/tot*100)}%</small></div></div>`}).join('')}</div>`;
+  h+=car('c1',[c1,c2]);
   const dm=dayMap(),dv=[];for(let i=1;i<=nd;i++)dv.push(dm[`${m}-${pad(i)}`]||0);
   const mx=Math.max(...dv,1);
-  h+=`<div class="card"><h3>По дням</h3><div class="bars" style="--c:var(--ac);gap:2px">${dv.map((v,i)=>{const d=`${m}-${pad(i+1)}`;return `<div class="bc" data-act="dbar" data-d="${d}"><div class="bw"><div class="bb ok" style="height:${v?Math.max(5,v/mx*100):0}%"></div></div><span>${(i+1)%5===0||i===0?i+1:''}</span></div>`}).join('')}</div></div>`;
+  const d1=`<div class="card"><h3>По дням</h3><div class="bars" style="--c:var(--ac);gap:2px">${dv.map((v,i)=>{const d=`${m}-${pad(i+1)}`;return `<div class="bc" data-act="dbar" data-d="${d}"><div class="bw"><div class="bb ok" style="height:${v?Math.max(5,v/mx*100):0}%"></div></div><span>${(i+1)%5===0||i===0?i+1:''}</span></div>`}).join('')}</div></div>`;
   const t0=today(),wsum=[0,0,0,0,0,0,0];
   for(let i=0;i<84;i++){const d=addDays(t0,-i);wsum[dow(d)]+=dm[d]||0}
   const nz=Object.values(dm).filter(x=>x>0).sort((a,b)=>a-b);
   const q=nz.length?nz[Math.min(nz.length-1,Math.floor(nz.length*.9))]:1;
   const big=[...list].sort((a,b)=>b.amount-a.amount).slice(0,3);
-  h+=`<div class="card"><h3>Карта расходов</h3>${heat({color:'#f76707',act:'ecell',level:d=>{const v=dm[d]||0;if(!v)return 0;const r=Math.min(1,v/q);return r<.25?1:r<.5?2:r<.8?3:4}})}</div>
-  <div class="card"><h3>В среднем по дням недели · 12 нед.</h3>${wbars(wsum.map(x=>x/12),'#f76707',v=>money(Math.round(v)))}</div>
-  <div class="card"><h3>Крупнейшие траты</h3>${big.map(e=>{const c=catOf(e.cat);return `<div class="crow"><div class="dot" style="background:color-mix(in srgb,${c.c} 18%,transparent)">${esc(c.e)}</div><div class="grow"><b>${esc(e.note||c.n)}</b><div class="sub">${dfull(e.date)}</div></div><div class="r">${money(e.amount)}</div></div>`}).join('')}</div>`;
+  const d2=`<div class="card"><h3>Карта расходов</h3>${heat({color:'#f76707',act:'ecell',level:d=>{const v=dm[d]||0;if(!v)return 0;const r=Math.min(1,v/q);return r<.25?1:r<.5?2:r<.8?3:4}})}</div>`;
+  const d3=`<div class="card"><h3>В среднем по дням недели · 12 нед.</h3>${wbars(wsum.map(x=>x/12),'#f76707',v=>money(Math.round(v)))}</div>`;
+  h+=car('c2',[d1,d2,d3]);
+  h+=`<div class="card"><h3>Крупнейшие траты</h3>${big.map(e=>{const c=catOf(e.cat);return `<div class="crow"><div class="dot" style="background:color-mix(in srgb,${c.c} 18%,transparent)">${esc(c.e)}</div><div class="grow"><b>${esc(e.note||c.n)}</b><div class="sub">${dfull(e.date)}</div></div><div class="r">${money(e.amount)}</div></div>`}).join('')}</div>`;
   const days=[...new Set(list.map(e=>e.date))].sort().reverse();
   h+=`<h3 style="margin:18px 4px 0">Операции</h3>`+days.map(d=>{
     const items=list.filter(e=>e.date===d);
@@ -646,6 +657,8 @@ function suggUpdate(){
     .sort((a,b)=>(b.k.startsWith(q)-a.k.startsWith(q))||(b.c-a.c)||(b.last.date<a.last.date?-1:1)).slice(0,5);
   el.innerHTML=list.map(h=>`<button type="button" class="chip" data-keep data-act="useHist" data-k="${esc(h.k)}">${esc(h.n)}<small>${money(h.last.amount)}</small></button>`).join('');
 }
+function stRefresh(){const b=$('#stsel');if(!b)return;const st=storeOf(gv('store'));
+  b.innerHTML=(st?stile(st,true)+`<span class="grow">${esc(st.n)}</span>`:`<span class="none">+</span><span class="grow" style="color:var(--mut)">Не выбран</span>`)+'<span class="chev">▾</span>'}
 const setOn=(g,v)=>document.querySelectorAll(`.sh [data-g="${g}"]`).forEach(x=>x.classList.toggle('on',x.dataset.v===v));
 function expSheet(id){
   const e=id?S.expenses.find(x=>x.id===id):null;
@@ -656,11 +669,11 @@ function expSheet(id){
   <div id="calcs" class="calc"></div>
   <label>Название</label><input id="f_nt" class="inp" maxlength="60" autocomplete="off" placeholder="Например: батон" value="${esc(x.note)}"><div id="sugg" class="sugg"></div>
   <label>Количество</label><div class="qrow"><input id="f_q" class="inp" inputmode="decimal" autocomplete="off" placeholder="—" value="${x.qty?fmtIn(x.qty):''}"><div class="units">${UNITS.map(u=>`<button type="button" class="chip${x.unit===u?' on':''}" data-act="pickOne" data-g="unit" data-v="${u}">${u}</button>`).join('')}</div></div>
-  <label>Магазин</label><div class="stg">${S.stores.map(st=>`<button type="button" class="stb${x.store===st.id?' on':''}" data-act="pickOne" data-g="store" data-v="${st.id}">${stile(st)}<span class="n">${esc(st.n)}</span></button>`).join('')}</div>
+  <label>Магазин</label><button type="button" class="stsel" id="stsel" data-act="stToggle"></button><div class="stg" id="stg" hidden>${S.stores.map(st=>`<button type="button" class="stb${x.store===st.id?' on':''}" data-act="pickStore" data-g="store" data-v="${st.id}">${stile(st)}<span class="n">${esc(st.n)}</span></button>`).join('')}</div>
   <label>Категория</label><div class="chips">${S.cats.map(c=>`<button type="button" class="chip${x.cat===c.id?' on':''}" data-act="pick" data-g="cat" data-v="${c.id}">${esc(c.e)} ${esc(c.n)}</button>`).join('')}</div>
   <label>Дата</label><input id="f_d" class="inp" type="date" value="${x.date}">
   <div class="sfoot"><button class="btn pri grow" data-act="saveExp" data-id="${id||''}">Сохранить</button>${e?`<button class="btn dng" data-act="delExp" data-id="${id}">Удалить</button>`:''}</div>`,
-  ()=>{if(!e){const a=$('#f_a');a&&a.focus()}},'sh2');
+  ()=>stRefresh(),'sh2');
 }
 
 /* ---------- views: home ---------- */
@@ -777,18 +790,15 @@ function render(){
   $('#hdr').innerHTML=hd;$('#main').innerHTML=mn;
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===(V.tab==='watch'?'tasks':V.tab)));
   document.querySelectorAll('.hscroll').forEach(e=>{e.scrollLeft=e.scrollWidth});
+  document.querySelectorAll('.slides').forEach(e=>{const i=(V.car&&V.car[e.dataset.car])||0;e.style.scrollBehavior='auto';e.scrollLeft=i*e.clientWidth});
   try{if(tg&&tg.BackButton){((V.tab==='habits'&&V.habitId)||V.tab==='watch')?tg.BackButton.show():tg.BackButton.hide()}}catch(e){}
   kbSoon();
 }
 $('#nav').innerHTML=NAV.map(([k,l])=>`<button data-act="nav" data-v="${k}"><svg viewBox="0 0 24 24">${ICONS[k]}</svg>${l}</button>`).join('');
 
+document.addEventListener('scroll',e=>{const t=e.target;if(!t.classList||!t.classList.contains('slides'))return;const i=Math.round(t.scrollLeft/Math.max(1,t.clientWidth));(V.car=V.car||{})[t.dataset.car]=i;const d=document.querySelector(`[data-dots="${t.dataset.car}"]`);if(d)[...d.children].forEach((x,k)=>x.classList.toggle('on',k===i))},true);
 /* ---------- sheets ---------- */
-function fitSheets(){
-  const vv=window.visualViewport;if(!vv)return;
-  const kb=Math.max(0,Math.round(innerHeight-vv.height-vv.offsetTop));
-  document.querySelectorAll('.sh').forEach(sh=>{sh.style.bottom=kb+'px';sh.style.maxHeight=Math.max(260,Math.round(vv.height*.94))+'px'});
-}
-try{if(window.visualViewport){visualViewport.addEventListener('resize',fitSheets);visualViewport.addEventListener('scroll',fitSheets)}tg&&tg.onEvent&&tg.onEvent('viewportChanged',fitSheets)}catch(e){}
+const fitSheets=()=>{};
 function sheet(html,mount,cls){
   $('#sheetWrap').innerHTML=`<div class="bd" data-act="close"></div><div class="sh${cls?' '+cls:''}"><div class="grab"></div>${html}</div>`;
   document.body.classList.add('lock');fitSheets();if(mount)mount($('.sh'));
@@ -813,7 +823,7 @@ try{tg&&tg.BackButton&&tg.BackButton.onClick(()=>ACT.back())}catch(e){}
 
 const isField=el=>!!el&&/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName);
 let kbT;
-document.addEventListener('focusin',e=>{if(!isField(e.target))return;if(e.target.id==='tp_in'){const el=e.target;setTimeout(()=>{try{el.select()}catch(_){}},0)}clearTimeout(kbT);document.body.classList.add('kb');const el=e.target;setTimeout(()=>{try{if(document.activeElement===el)el.scrollIntoView({block:'center',behavior:'smooth'})}catch(_){}},350)});
+document.addEventListener('focusin',e=>{if(!isField(e.target))return;if(e.target.id==='tp_in'){const el=e.target;setTimeout(()=>{try{el.select()}catch(_){}},0)}if(e.target.closest('.sh'))return;clearTimeout(kbT);document.body.classList.add('kb');const el=e.target;setTimeout(()=>{try{if(document.activeElement===el)el.scrollIntoView({block:'center',behavior:'smooth'})}catch(_){}},350)});
 const kbSoon=()=>{clearTimeout(kbT);kbT=setTimeout(()=>{if(!isField(document.activeElement))document.body.classList.remove('kb')},200)};
 document.addEventListener('focusout',kbSoon);
 /* ---------- time picker (24h, scroll wheels) ---------- */
@@ -1025,6 +1035,8 @@ ACT.saveExp=t=>{
   const id=t.dataset.id;if(id)Object.assign(S.expenses.find(e=>e.id===id),o);else S.expenses.push({id:uid(),...o});
   V.month=o.date.slice(0,7);save();closeSheet();hap();render();
 };
+ACT.stToggle=t=>{const g=$('#stg');g.hidden=!g.hidden;t.classList.toggle('open',!g.hidden);hap()};
+ACT.pickStore=t=>{const was=t.classList.contains('on');document.querySelectorAll('.sh [data-g="store"]').forEach(x=>x.classList.remove('on'));if(!was)t.classList.add('on');stRefresh();$('#stg').hidden=true;$('#stsel').classList.remove('open');hap()};
 ACT.pickOne=t=>{const g=t.dataset.g,was=t.classList.contains('on');document.querySelectorAll(`.sh [data-g="${g}"]`).forEach(x=>x.classList.remove('on'));if(!was)t.classList.add('on');hap()};
 ACT.op=t=>{
   const i=$('#f_a');if(!i)return;const v=t.dataset.v;
@@ -1043,7 +1055,7 @@ ACT.useHist=t=>{
   const h=histNotes().find(x=>x.k===t.dataset.k);if(!h)return;const l=h.last;
   $('#f_nt').value=h.n;
   if(S.cats.some(c=>c.id===l.cat))setOn('cat',l.cat);
-  setOn('store',storeOf(l.store)?l.store:'');
+  setOn('store',storeOf(l.store)?l.store:'');stRefresh();
   setOn('unit',l.unit||'');$('#f_q').value=l.qty?fmtIn(l.qty):'';
   const a=$('#f_a');if(a&&!a.value.trim()){a.value=fmtIn(l.amount);calcUpdate()}
   $('#sugg').innerHTML='';hap();
@@ -1140,7 +1152,7 @@ document.addEventListener('visibilitychange',()=>{
   else if(cs()&&S.ts!==getSynced()){clearTimeout(ct);cloudSave()}
 });
 try{tg&&tg.onEvent&&tg.onEvent('activated',syncAll)}catch(e){}
-const VERSION='2026-11-27.2';
+const VERSION='2026-11-27.3';
 try{if(window.fetch)fetch('version.json?'+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>{
   if(j&&j.v&&j.v!==VERSION&&location.search.indexOf('v='+encodeURIComponent(j.v))<0)location.replace(location.pathname+'?v='+encodeURIComponent(j.v));
 }).catch(()=>{})}catch(e){}
