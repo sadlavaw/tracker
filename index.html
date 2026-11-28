@@ -1076,19 +1076,14 @@ ACT.saveStore=()=>{const n=$('#f_n').value.trim();if(!n)return toast('Введи
 ACT.delStore=t=>ask('Удалить магазин? В старых тратах он просто перестанет показываться.',()=>{S.stores=S.stores.filter(x=>x.id!==t.dataset.id);save();render()});
 ACT.clrLogo=t=>{const st=S.stores.find(x=>x.id===t.dataset.id);if(st){delete st.logo;save();render()}};
 function logoCanvas(img){
-  const W=img.naturalWidth||img.width,H=img.naturalHeight||img.height,m=Math.min(1,400/Math.max(W,H));
-  const sw=Math.max(1,Math.round(W*m)),sh=Math.max(1,Math.round(H*m));
-  const t=document.createElement('canvas');t.width=sw;t.height=sh;const tx=t.getContext('2d',{willReadFrequently:true});tx.drawImage(img,0,0,sw,sh);
-  const d=tx.getImageData(0,0,sw,sh).data;let x0=sw,y0=sh,x1=-1,y1=-1;
-  for(let y=0;y<sh;y++)for(let x=0;x<sw;x++){const i=(y*sw+x)*4,a=d[i+3];if(a>24&&!(d[i]>238&&d[i+1]>238&&d[i+2]>238)){if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y}}
-  if(x1<0){x0=0;y0=0;x1=sw-1;y1=sh-1}
-  let bw=x1-x0+1,bh=y1-y0+1;
-  const N=96,c=document.createElement('canvas');c.width=c.height=N;const x=c.getContext('2d');
-  const px=(a,b)=>{const p=tx.getImageData(Math.min(sw-1,Math.max(0,a)),Math.min(sh-1,Math.max(0,b)),1,1).data;return p[3]>24?`rgb(${p[0]},${p[1]},${p[2]})`:'#fff'};
-  const r=bw/bh;
-  if(r>.8&&r<1.25){const side=Math.min(bw,bh),sx=x0+(bw-side)/2,sy=y0+(bh-side)/2;x.drawImage(t,sx,sy,side,side,0,0,N,N)}
-  else{x.fillStyle=px(x0+2,y0+2);x.fillRect(0,0,N,N);const k=Math.min(N/bw,N/bh),w=bw*k,h=bh*k;x.drawImage(t,x0,y0,bw,bh,(N-w)/2,(N-h)/2,w,h)}
-  return c.toDataURL('image/jpeg',0.9);
+  const W=img.naturalWidth||img.width,H=img.naturalHeight||img.height,N=128;
+  const c=document.createElement('canvas');c.width=c.height=N;const x=c.getContext('2d',{willReadFrequently:true});
+  const side=Math.min(W,H),sx=(W-side)/2,sy=(H-side)/2;
+  const t=document.createElement('canvas');t.width=t.height=N;const tx=t.getContext('2d');tx.drawImage(img,sx,sy,side,side,0,0,N,N);
+  const p=tx.getImageData(N>>1,1,1,1).data;
+  x.fillStyle=p[3]>24?`rgb(${p[0]},${p[1]},${p[2]})`:'#fff';x.fillRect(0,0,N,N);
+  x.drawImage(t,0,0);
+  return c.toDataURL('image/jpeg',0.92);
 }
 function fixLogos(){S.stores.forEach(st=>{const lg=safeLogo(st.logo);if(!lg||st.lf)return;st.lf=1;const im=new Image();im.onload=()=>{try{st.logo=logoCanvas(im);S.ts=Date.now();try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}render()}catch(e){}};im.src=lg})}
 CHG.logoFile=t=>{
@@ -1134,7 +1129,7 @@ ACT.cloudSave=()=>{toast('Сохраняю…');cloudSave(ok=>toast(ok?'Сохр
 ACT.cloudRestore=()=>cloudLoad(o=>{if(!o)return toast('В облаке ничего нет');ask('Заменить текущие данные копией из Telegram?',()=>{S=o;persistLocal();setSynced(o.ts);render();toast('Загружено из облака')})});
 
 /* ---------- start ---------- */
-render();setTimeout(fixLogos,600);
+render();
 
 /* ---------- inbox from the Telegram bot ---------- */
 const API_URL='https://tracker-bot.eeney.workers.dev';
@@ -1172,7 +1167,7 @@ document.addEventListener('visibilitychange',()=>{
   else if(cs()&&S.ts!==getSynced()){clearTimeout(ct);cloudSave()}
 });
 try{tg&&tg.onEvent&&tg.onEvent('activated',syncAll)}catch(e){}
-const VERSION='2026-11-28.3';
+const VERSION='2026-11-28.4';
 try{if(window.fetch)fetch('version.json?'+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>{
   if(j&&j.v&&j.v!==VERSION&&location.search.indexOf('v='+encodeURIComponent(j.v))<0)location.replace(location.pathname+'?v='+encodeURIComponent(j.v));
 }).catch(()=>{})}catch(e){}
