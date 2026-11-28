@@ -183,7 +183,8 @@ button.inp{text-align:left;font-weight:600;font-variant-numeric:tabular-nums;cur
 .slides{display:flex;align-items:flex-start;overflow-x:auto;overflow-y:hidden;transition:height .22s ease;scroll-snap-type:x mandatory;scrollbar-width:none;margin:0 -16px;overscroll-behavior-x:contain}
 .slides::-webkit-scrollbar{display:none}
 .slide{flex:0 0 100%;scroll-snap-align:center;min-width:0;padding:0 16px;box-sizing:border-box}
-.slide{padding-bottom:6px}.slide>.card{margin:0;min-width:0;box-sizing:border-box}
+.slide{padding-bottom:6px;scroll-snap-stop:always}
+.slides,body{overflow-anchor:none}.slide>.card{margin:0;min-width:0;box-sizing:border-box}
 .stg{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
 .stb{display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 2px 7px;border-radius:12px;background:var(--cell);font-size:11.5px;min-width:0}
 .stb .n{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -802,7 +803,7 @@ $('#nav').innerHTML=NAV.map(([k,l])=>`<button data-act="nav" data-v="${k}"><svg 
 
 function fitCar(e){const i=Math.round(e.scrollLeft/Math.max(1,e.clientWidth)),c=e.children[i];if(c)e.style.height=c.offsetHeight+'px'}
 addEventListener('resize',()=>document.querySelectorAll('.slides').forEach(fitCar));
-document.addEventListener('scroll',e=>{const t=e.target;if(!t.classList||!t.classList.contains('slides'))return;fitCar(t);const i=Math.round(t.scrollLeft/Math.max(1,t.clientWidth));(V.car=V.car||{})[t.dataset.car]=i;const d=document.querySelector(`[data-dots="${t.dataset.car}"]`);if(d)[...d.children].forEach((x,k)=>x.classList.toggle('on',k===i))},true);
+document.addEventListener('scroll',e=>{const t=e.target;if(!t.classList||!t.classList.contains('slides'))return;clearTimeout(t._ft);t._ft=setTimeout(()=>fitCar(t),140);const i=Math.round(t.scrollLeft/Math.max(1,t.clientWidth));(V.car=V.car||{})[t.dataset.car]=i;const d=document.querySelector(`[data-dots="${t.dataset.car}"]`);if(d)[...d.children].forEach((x,k)=>x.classList.toggle('on',k===i))},true);
 /* ---------- sheets ---------- */
 const fitSheets=()=>{};
 function sheet(html,mount,cls){
@@ -1171,7 +1172,7 @@ document.addEventListener('visibilitychange',()=>{
   else if(cs()&&S.ts!==getSynced()){clearTimeout(ct);cloudSave()}
 });
 try{tg&&tg.onEvent&&tg.onEvent('activated',syncAll)}catch(e){}
-const VERSION='2026-11-28.2';
+const VERSION='2026-11-28.3';
 try{if(window.fetch)fetch('version.json?'+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(j=>{
   if(j&&j.v&&j.v!==VERSION&&location.search.indexOf('v='+encodeURIComponent(j.v))<0)location.replace(location.pathname+'?v='+encodeURIComponent(j.v));
 }).catch(()=>{})}catch(e){}
